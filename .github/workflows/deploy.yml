@@ -1,0 +1,49 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE_BASE: ghcr.io/mytonwallet-org/dns-image-gen
+
+jobs:
+  build-and-push:
+    runs-on: self-hosted
+    outputs:
+      IMAGE_FULL: ${{ steps.set-variables.outputs.IMAGE_FULL }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set env variables
+        id: set-variables
+        run: |
+          SHORT_SHA=$(git rev-parse --short "${{ github.sha }}")
+          IMAGE="$IMAGE_BASE:${{ github.ref_name }}"
+          IMAGE_FULL="$IMAGE_BASE:${{ github.ref_name }}-$SHORT_SHA"
+
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          echo "IMAGE_FULL=$IMAGE_FULL" >> "$GITHUB_ENV"
+          echo "IMAGE_FULL=$IMAGE_FULL" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        run: |
+          docker build -t "${{ env.IMAGE }}" .
+          docker push "${{ env.IMAGE }}"
+
+          docker tag "${{ env.IMAGE }}" "${{ env.IMAGE_FULL }}"
+          docker push "${{ env.IMAGE_FULL }}"
