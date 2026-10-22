@@ -11,7 +11,7 @@ env:
 
 jobs:
   build-and-push:
-    # A public repository is kept off the organization's own runners, which serve production.
+    # The organization's self-hosted runners take jobs from private repositories only.
     runs-on: ubuntu-latest
     permissions:
       contents: read
