@@ -55,8 +55,8 @@ jobs:
           docker tag "${{ env.IMAGE }}" "${{ env.IMAGE_FULL }}"
           docker push "${{ env.IMAGE_FULL }}"
 
-      # Only this job's directory goes: docker logout edits whichever config is
-      # active at that moment, and that can be the runner's shared one.
+      # By its literal path: when setup failed, DOCKER_CONFIG may be unset or
+      # inherited, and docker logout edits whichever config is active.
       - name: Drop this job's registry credentials
         if: always()
-        run: rm -rf "$DOCKER_CONFIG"
+        run: rm -rf "$RUNNER_TEMP/docker"
