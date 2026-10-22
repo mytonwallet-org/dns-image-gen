@@ -12,6 +12,9 @@ env:
 jobs:
   build-and-push:
     runs-on: self-hosted
+    permissions:
+      contents: read
+      packages: write
     outputs:
       IMAGE_FULL: ${{ steps.set-variables.outputs.IMAGE_FULL }}
     steps:
@@ -29,6 +32,21 @@ jobs:
           echo "IMAGE_FULL=$IMAGE_FULL" >> "$GITHUB_ENV"
           echo "IMAGE_FULL=$IMAGE_FULL" >> "$GITHUB_OUTPUT"
 
+      # With DOCKER_CONFIG unset docker uses the runner's shared config, and a
+      # login written there is read by every other job on this runner.
+      - name: Use this job's own docker config
+        run: echo "DOCKER_CONFIG=$RUNNER_TEMP/docker" >> "$GITHUB_ENV"
+
+      - name: Log in to ghcr
+        env:
+          GHCR_TOKEN: ${{ github.token }}
+          GHCR_USER: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$DOCKER_CONFIG"
+          chmod 700 "$DOCKER_CONFIG"
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
       - name: Build and push
         run: |
           docker build -t "${{ env.IMAGE }}" .
@@ -36,3 +54,9 @@ jobs:
 
           docker tag "${{ env.IMAGE }}" "${{ env.IMAGE_FULL }}"
           docker push "${{ env.IMAGE_FULL }}"
+
+      # By its literal path: when setup failed, DOCKER_CONFIG may be unset or
+      # inherited, and docker logout edits whichever config is active.
+      - name: Drop this job's registry credentials
+        if: always()
+        run: rm -rf "$RUNNER_TEMP/docker"
